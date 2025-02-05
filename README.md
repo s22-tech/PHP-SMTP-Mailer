@@ -1,6 +1,6 @@
 ### PHP-SMTP-Mailer
 This is a lightweight SMTP PHPMailer.<br>
-Updated to work with PHP 8.0.<br>
+Updated to work with PHP 8.0+.<br>
 The PHP Class supports TLS, SSL and File Attachments in mail.<br>
 Simple, powerful and easy to use.
 
