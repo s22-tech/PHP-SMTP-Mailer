@@ -2,11 +2,12 @@
 /*************************************************************
  Description : PHP Class for sending SMTP Mail
  Orig Author : halojoy  https://github.com/halojoy/PHP-SMTP-Mailer
- Updated by  : s22_tech  https://github.com/s22_tech/PHP-SMTP-Mailer
+ Updated by  : s22-tech  https://github.com/s22-tech/PHP-SMTP-Mailer
  *************************************************************/
 
 Class SMTPMailer
 {
+	public  $Server;
 	public  $SMTPHost;
 	public  $Port       = 465;
 	public  $SMTPSecure = 'SSL';
@@ -47,13 +48,31 @@ Class SMTPMailer
 	}
 
 
-  // Set from email address.
+  // Set email subject.
+	public function Subject($subject = '') {
+		$this->Subject = $subject;
+	}
+
+
+  // Set bodyHTML.
+	public function bodyHTML($bodyHTML = '') {
+		$this->bodyHTML = $bodyHTML;
+	}
+
+
+  // Set bodyPlain.
+	public function bodyPlain($bodyPlain = '') {
+		$this->bodyPlain = $bodyPlain;
+	}
+
+
+  // Set "from" email address.
 	public function setFrom($address, $name = '') {
 		$this->from = [$address, $name];
 	}
 
 
-  // Add email reply to address.
+  // Add email reply-to address.
 	public function addReplyTo($address, $name = '') {
 		$this->reply_to[] = [$address, $name];
 	}
