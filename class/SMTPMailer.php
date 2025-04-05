@@ -9,32 +9,18 @@ declare(strict_types=1);
 
 class SMTPMailer {
 
-	public $smtp_host;
-	public $att_path;
-	public $att_type;
-	public $attachment;
-	public $att_encoding;
-	public $port     = 465;
-	public $to       = [];
-	public $from     = [];
-	public $cc       = [];
-	public $bcc      = [];
-	public $reply_to = [];
-	public $username = '';
-	public $password = '';
+	public $smtp_host, $att_path, $attachment, $att_encoding;
+	public $port = 465;
+	public $from = '', $to = [], $cc = [], $bcc = [], $reply_to = [];
+	public $username, $password = '';
 	public $show_log = false;
 	public $smtp_secure = 'SSL';
 	public $charset = 'UTF-8';
 	public $transfer_encoding = '7bit';
-	public string $subject = 'No subject';
-	public string $body_html = '';
-	public string $body_plain = '';
+	public $subject = 'No subject';
+	public $body_html = '', $body_text = '';
 	
-	private $header;
-	private $sock;
-	private $local;
-	private $hostname;
-	private $mail_headers;
+	private $header, $sock, $local, $hostname, $mail_headers;
 	private $log = [];
 
 
@@ -60,6 +46,7 @@ class SMTPMailer {
 	 * @param string $name     The recipient's name (optional).
 	 */
 	public function add_address($type, $address, $name = '') {
+		if ($address === 'no') return;
 		$this->$type[] = [$address, $name];
 	}
 
@@ -74,13 +61,12 @@ class SMTPMailer {
 
 
   // Add attachment file.
-	public function add_attachment(array $att_path, $att_encoding, $att_type) {
+	public function add_attachment(array $att_path, $att_encoding='base64') {
 		if (!is_array($att_path)) {
 			throw new Exception('$att_path must be an array in '.__FUNCTION__.'()');
 		}
 		$this->attachment   = $att_path;
 		$this->att_encoding = $att_encoding;
-		$this->att_type     = $att_type;
 	}
 
 
@@ -208,7 +194,7 @@ class SMTPMailer {
 		if (empty($this->to) || !filter_var($this->to[0][0], FILTER_VALIDATE_EMAIL)) {
 			exit('We need a valid email address to send to.' . PHP_EOL);
 		}
-		if (strlen(trim($this->body_html)) < 3 && strlen(trim($this->body_plain)) < 3) {
+		if (strlen(trim($this->body_html)) < 3 && strlen(trim($this->body_text)) < 3) {
 			exit('There was no message to send.' . PHP_EOL);
 		}
 
@@ -224,8 +210,8 @@ class SMTPMailer {
 
 	private function create_headers($filedata) {
 	  // Add space between body and attachments.
-		if ($this->body_html)  $this->body_html  .= '<br>'.PHP_EOL.'<br>'.PHP_EOL;
-		if ($this->body_plain) $this->body_plain .= PHP_EOL . PHP_EOL;
+		if ($this->body_html) $this->body_html .= '<br>'.PHP_EOL.'<br>'.PHP_EOL;
+		if ($this->body_text) $this->body_text .= PHP_EOL . PHP_EOL;
 
 		$this->header = [
 			'Date: '.date('r'),
@@ -243,18 +229,18 @@ class SMTPMailer {
 		$boundary = md5(uniqid());
 		if (empty($this->attachment) || !file_exists($this->attachment[0])) {
 		  // No attachment.
-			if ($this->body_plain && $this->body_html) {
+			if ($this->body_text && $this->body_html) {
 				$this->header[] = 'Content-Type: multipart/alternative; boundary="'.$boundary.'"';
 				$this->header[] = '';
 				$this->header[] = 'This is a multi-part message in MIME format.';
 				$this->header[] = '--'.$boundary;
-				$this->define_content('plain', 'body_plain');
+				$this->define_content('plain', 'body_text');
 				$this->header[] = '--'.$boundary;
 				$this->define_content('html', 'body_html');
 				$this->header[] = '--'.$boundary.'--';
 			}
-			elseif ($this->body_plain) {
-				$this->define_content('plain', 'body_plain');
+			elseif ($this->body_text) {
+				$this->define_content('plain', 'body_text');
 			}
 			else {
 				$this->define_content('html', 'body_html');
@@ -266,8 +252,8 @@ class SMTPMailer {
 			$this->header[] = '';
 			$this->header[] = 'This is a multi-part message in MIME format.';
 			$this->header[] = 'Content-Type: multipart/alternative; boundary="'.'--'.$boundary.'"';
-			if ($this->body_plain) {
-				$this->define_content('plain', 'body_plain');
+			if ($this->body_text) {
+				$this->define_content('plain', 'body_text');
 				$this->header[] = '--'.$boundary;
 			}
 			if ($this->body_html) {
@@ -277,9 +263,10 @@ class SMTPMailer {
 			foreach ($this->attachment as $path) {
 			  // Loop thru attachments...
 				if (file_exists($path)) {
-					$this->header[] = 'Content-Type: application/'.$this->att_type.'; name="'.basename($path).'"';
-					$this->header[] = 'Content-Transfer-Encoding: '.$this->att_encoding;
+					$att_type = $this->filename_to_type($path);
 					$this->header[] = 'Content-Disposition: attachment; filename="'.basename($path).'"';
+					$this->header[] = 'Content-Transfer-Encoding: '.$this->att_encoding;
+					$this->header[] = 'Content-Type: '.$att_type.'; name="'.basename($path).'"';
 					$this->header[] = '';
 					if ($filedata) {
 					  // Encode file contents.
@@ -327,6 +314,118 @@ class SMTPMailer {
 			base_convert(bin2hex(openssl_random_pseudo_bytes(8)), 16, 36),
 			$this->local
 		);
+	}
+
+
+    /**
+     * Get the MIME type for a file extension.
+     * @param string $ext - File extension
+     * @return string - MIME type of file
+     */
+	public function mime_types($ext = '') {
+		$mimes = [
+			'xl'    => 'application/excel',
+			'js'    => 'application/javascript',
+			'hqx'   => 'application/mac-binhex40',
+			'cpt'   => 'application/mac-compactpro',
+			'bin'   => 'application/macbinary',
+			'doc'   => 'application/msword',
+			'word'  => 'application/msword',
+			'xlsx'  => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			'xltx'  => 'application/vnd.openxmlformats-officedocument.spreadsheetml.template',
+			'sldx'  => 'application/vnd.openxmlformats-officedocument.presentationml.slide',
+			'docx'  => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+			'dotx'  => 'application/vnd.openxmlformats-officedocument.wordprocessingml.template',
+			'pdf'   => 'application/pdf',
+			'smi'   => 'application/smil',
+			'smil'  => 'application/smil',
+			'xls'   => 'application/vnd.ms-excel',
+			'gtar'  => 'application/x-gtar',
+			'php3'  => 'application/x-httpd-php',
+			'php4'  => 'application/x-httpd-php',
+			'php'   => 'application/x-httpd-php',
+			'phtml' => 'application/x-httpd-php',
+			'phps'  => 'application/x-httpd-php-source',
+			'sit'   => 'application/x-stuffit',
+			'tar'   => 'application/x-tar',
+			'tgz'   => 'application/x-tar',
+			'xht'   => 'application/xhtml+xml',
+			'xhtml' => 'application/xhtml+xml',
+			'zip'   => 'application/zip',
+			'mid'   => 'audio/midi',
+			'midi'  => 'audio/midi',
+			'mp2'   => 'audio/mpeg',
+			'mp3'   => 'audio/mpeg',
+			'm4a'   => 'audio/mp4',
+			'mpga'  => 'audio/mpeg',
+			'aif'   => 'audio/x-aiff',
+			'aifc'  => 'audio/x-aiff',
+			'aiff'  => 'audio/x-aiff',
+			'wav'   => 'audio/x-wav',
+			'mka'   => 'audio/x-matroska',
+			'bmp'   => 'image/bmp',
+			'gif'   => 'image/gif',
+			'jpeg'  => 'image/jpeg',
+			'jpe'   => 'image/jpeg',
+			'jpg'   => 'image/jpeg',
+			'png'   => 'image/png',
+			'tiff'  => 'image/tiff',
+			'tif'   => 'image/tiff',
+			'webp'  => 'image/webp',
+			'avif'  => 'image/avif',
+			'eml'   => 'message/rfc822',
+			'css'   => 'text/css',
+			'html'  => 'text/html',
+			'htm'   => 'text/html',
+			'shtml' => 'text/html',
+			'log'   => 'text/plain',
+			'text'  => 'text/plain',
+			'txt'   => 'text/plain',
+			'rtx'   => 'text/richtext',
+			'rtf'   => 'text/rtf',
+			'vcf'   => 'text/vcard',
+			'vcard' => 'text/vcard',
+			'ics'   => 'text/calendar',
+			'xml'   => 'text/xml',
+			'xsl'   => 'text/xml',
+			'wmv'   => 'video/x-ms-wmv',
+			'mpeg'  => 'video/mpeg',
+			'mpe'   => 'video/mpeg',
+			'mpg'   => 'video/mpeg',
+			'mp4'   => 'video/mp4',
+			'm4v'   => 'video/mp4',
+			'mov'   => 'video/quicktime',
+			'qt'    => 'video/quicktime',
+			'avi'   => 'video/x-msvideo',
+			'movie' => 'video/x-sgi-movie',
+			'webm'  => 'video/webm',
+			'mkv'   => 'video/x-matroska',
+		];
+		$ext = strtolower($ext);
+		if (array_key_exists($ext, $mimes)) {
+			return $mimes[$ext];
+		}
+
+		return 'application/octet-stream';
+	}
+
+	/**
+     * Map a file name to a MIME type.
+     * Defaults to 'application/octet-stream', i.e.. arbitrary binary data.
+     *
+     * @param string $filename A file name or full path, does not need to exist as a file
+     *
+     * @return string
+     */
+	public function filename_to_type($filename) {
+	  // In case the path is a URL, strip any query string before getting extension.
+		$q_pos = strpos($filename, '?');
+		if (false !== $q_pos) {
+			$filename = substr($filename, 0, $q_pos);
+		}
+		$ext = pathinfo($filename, PATHINFO_EXTENSION);
+
+		return $this->mime_types($ext);
 	}
 
 }
