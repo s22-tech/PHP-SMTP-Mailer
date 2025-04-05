@@ -46,7 +46,6 @@ class SMTPMailer {
 	 * @param string $name     The recipient's name (optional).
 	 */
 	public function add_address($type, $address, $name = '') {
-		if ($address === 'no') return;
 		$this->$type[] = [$address, $name];
 	}
 
