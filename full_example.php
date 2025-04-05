@@ -2,41 +2,38 @@
 
 require '/path/to/SMTPMailer.php';
 
-// Instantiation.
 $mail = new SMTPMailer;
 
-$mail->SMTPHost = 'mail.server.com';
-$mail->Port     = 465;
-$mail->SMTPSecure = 'SSL';
-$mail->Username = 'user@server.com';  // SMTP username.
-$mail->Password = 'password';         // SMTP password.
-$mail->transfer_encoding = '7bit';
+$mail->show_log = false;  // true || false
 
-$mail->setFrom('me@server.com');
-$mail->addAddress('someone@destination.com');
-$mail->addAddress('another@person.com');
-$mail->addCC('reply@my-server.com');
-$mail->addBCC('secret@invisible.com');
+$mail->port = 465;
+$mail->smtp_host = 'mail.server.com';
+$mail->username  = 'user@server.com';
+$mail->password  = 'password';
 
-$mail->Subject = 'Greetings';
+$mail->set_from(address:'me@server.com', name:'tester');
 
-$mail->bodyHTML = <<<"HTML"
-	This is a test from {$mail->SMTPHost} on port {$mail->Port}
+$mail->add_address(type:'to', address:'someone@destination.com', name:'Someone');
+$mail->add_address(type:'cc', address:'someone-else@destination.com', name:'Someone Else');
+$mail->add_address(type:'bcc', address:'secret@destination.com', name:'Admirer');
+
+$mail->subject = 'Greetings';
+
+$mail->body_plain = <<<"PLAIN"
+	Hello!  This is a test.
+PLAIN;
+
+$mail->body_html = <<<"HTML"
+	This is a test from {$mail->smtp_host} on port {$mail->port}
 	<br>
 	<b>Greetings!</b>
-	HTML;
+HTML;
 
-$mail->bodyPlain = <<<"PLAIN"
-	This is a test from {$mail->SMTPHost} on port {$mail->Port}.
-	Greetings!
-	PLAIN;
+$mail->add_attachment(
+	att_path: ['/Users/user_name/document.pdf'],
+	att_encoding: 'base64',
+	att_type: 'application/pdf',
+);
 
-// Attachments (use an array).
-$mail->addAttachment(att_path: ['/path/to/attachment.jpg'],
-                     att_encoding: 'base64',
-					           att_type: 'image/jpg',
-					);
-
-echo PHP_EOL;
-if ($mail->Send()) { echo 'Mail was sent successfully!'. PHP_EOL; }
+if ($mail->send()) { echo 'Mail was sent successfully!'. PHP_EOL; }
 else               { echo 'Mail failure!!!'. PHP_EOL; }
