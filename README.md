@@ -31,27 +31,38 @@ require '/path/to/SMTPMailer.php';
 
 $mail = new SMTPMailer;
 
-$mail->SMTPHost = 'mail.server.com';
-$mail->Username = 'user@server.com';
-$mail->Password = 'password';
+$mail->show_log = false;  // true || false
 
-$mail->setFrom('me@server.com');
-$mail->addAddress('someone@destination.com');
+$mail->port = 465;
+$mail->smtp_host = 'mail.server.com';
+$mail->username  = 'user@server.com';
+$mail->password  = 'password';
 
-$mail->Subject = 'Greetings';
+$mail->set_from(address:'me@server.com', name:'tester');
 
-$mail->bodyPlain = <<<"PLAIN"
+$mail->add_address(type:'to', address:'someone@destination.com', name:'Someone');
+$mail->add_address(type:'cc', address:'someone-else@destination.com', name:'Someone Else');
+$mail->add_address(type:'bcc', address:'secret@destination.com', name:'Admirer');
+
+$mail->subject = 'Greetings';
+
+$mail->body_plain = <<<"PLAIN"
 	Hello!  This is a test.
-	PLAIN;
+PLAIN;
 
-$mail->bodyHTML = <<<"HTML"
-	This is a test from {$mail->SMTPHost} on port {$mail->Port}
+$mail->body_html = <<<"HTML"
+	This is a test from {$mail->smtp_host} on port {$mail->port}
 	<br>
 	<b>Greetings!</b>
-	HTML;
+HTML;
 
-echo PHP_EOL;
-if ($mail->Send()) { echo 'Mail was sent successfully!'. PHP_EOL; }
+$mail->add_attachment(
+	att_path: ['/Users/user_name/document.pdf'],
+	att_encoding: 'base64',
+	att_type: 'application/pdf',
+);
+
+if ($mail->send()) { echo 'Mail was sent successfully!'. PHP_EOL; }
 else               { echo 'Mail failure!!!'. PHP_EOL; }
 
 ?>
