@@ -10,6 +10,8 @@ $mail->port = 465;
 $mail->smtp_host = 'mail.server.com';
 $mail->username  = 'user@server.com';
 $mail->password  = 'password';
+$mail->smtp_secure = 'SSL';
+$mail->transfer_encoding = '7bit';  // 7bit, 8bit, or quoted-printable
 
 $mail->set_from(address:'me@server.com', name:'tester');
 
@@ -19,7 +21,7 @@ $mail->add_address(type:'bcc', address:'secret@destination.com', name:'Admirer')
 
 $mail->subject = 'Greetings';
 
-$mail->body_plain = <<<"PLAIN"
+$mail->body_text = <<<"PLAIN"
 	Hello!  This is a test.
 PLAIN;
 
@@ -30,9 +32,7 @@ $mail->body_html = <<<"HTML"
 HTML;
 
 $mail->add_attachment(
-	att_path: ['/Users/user_name/document.pdf'],
-	att_encoding: 'base64',
-	att_type: 'application/pdf',
+	attachment_path: ['/Users/user_name/document.pdf', '/Users/user_name/image.jpg'],
 );
 
 if ($mail->send()) { echo 'Mail was sent successfully!'. PHP_EOL; }
