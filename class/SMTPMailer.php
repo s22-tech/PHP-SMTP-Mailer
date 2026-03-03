@@ -8,8 +8,8 @@ declare(strict_types=1);
  Updated by  : s22-tech  https://github.com/s22-tech/PHP-SMTP-Mailer
  *************************************************************/
 
-class SMTPMailer {
-
+class SMTPMailer
+{
 	const DEFAULT_PORT = 465;
 	const DEFAULT_SMTP_SECURE = 'SSL';
 	const DEFAULT_CHARSET = 'UTF-8';
@@ -17,19 +17,20 @@ class SMTPMailer {
 	const DEFAULT_SUBJECT = 'No subject';
 
 	public bool $show_log = false;
-	public string $smtp_host;
+	public string $smtp_host = '';
 	public int $port = self::DEFAULT_PORT;
 	public string $username = '', $password = '';
-	public string $subject = self::DEFAULT_SUBJECT;
 	public string $body_html = '', $body_text = '';
+	public string $subject = self::DEFAULT_SUBJECT;
+	private string $charset = self::DEFAULT_CHARSET;
 	public string $smtp_secure = self::DEFAULT_SMTP_SECURE;
 	public string $transfer_encoding = self::DEFAULT_TRANSFER_ENCODING;
 	private array $attachments = [];
 	private string $attachment_encoding;
 	private array $from = ['',''], $to = [], $cc = [], $bcc = [], $reply_to = [];
-	private string $charset = self::DEFAULT_CHARSET;
 	private array $log = [];
-	private $sock, $local, $hostname, $mail_headers, $header;
+	private $sock, $local, $mail_headers, $header;
+	public $hostname;
 
 	public function __construct() {
 		$this->local = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? @$_SERVER['SERVER_ADDR'];
@@ -90,7 +91,7 @@ class SMTPMailer {
 
 	public function send(): bool {
 		$this->prepare_data_for_sending();
-		$this->open_server_connection();
+		$this->connect();
 		$this->authenticate();
 		$this->send_mail();
 		$this->close_connection();
@@ -98,16 +99,22 @@ class SMTPMailer {
 	}
 
 	private function prepare_data_for_sending(): void {
+		if (empty($this->smtp_host)) {
+			throw new InvalidArgumentException('$smtp_host is required.');
+		}
+		if (empty($this->username) || empty($this->password)) {
+			throw new InvalidArgumentException('SMTP username and password are required.');
+		}
 		$this->mail_headers = $this->create_headers();
 		$this->hostname = $this->smtp_secure === 'tls' ? 'tcp://' . $this->smtp_host : 'ssl://' . $this->smtp_host;
 	}
 
-	private function open_server_connection(): void {
+	private function connect(): void {
 		$this->sock = fsockopen($this->hostname, $this->port, $errno, $errstr, 30);
 		if (!$this->sock) {
-			throw new RuntimeException('Socket connection error: ' . $this->hostname);
+			throw new RuntimeException('Socket connection error: '. $this->hostname);
 		}
-		$this->log[] = 'CONNECTION: fsockopen(' . $this->hostname . ')';
+		$this->log[] = 'CONNECTION: fsockopen('. $this->hostname .')';
 		$this->response('220');
 		$this->log_request('EHLO ' . $this->local, '250');
 
@@ -128,18 +135,28 @@ class SMTPMailer {
 
 	private function send_mail(): void {
 		$mailfrom = '<' . $this->from[0] . '>';
-		$mailto = array_map(fn($address) => '<' . $address[0] . '>', array_merge($this->to, $this->cc, $this->bcc));
+
+		// Build RCPT list: include TO, CC and BCC for RCPT TO commands
+		$rcpt_list = array_merge($this->to, $this->cc, $this->bcc);
+
+		// Send MAIL FROM
 		$this->log_request('MAIL FROM: ' . $mailfrom, '250');
 
-		foreach ($mailto as $address) {
-			$this->log_request('RCPT TO: ' . $address, '250');
-		}
-		foreach ($this->bcc as $address) {
-			$this->log_request('RCPT TO: <' . $address[0] . '>', '250');
+		// Send RCPT TO for all recipients (including BCC), but do NOT include BCC in headers
+		foreach ($rcpt_list as $recipient) {
+			$this->log_request('RCPT TO: <' . $recipient[0] . '>', '250');
 		}
 
+		// Send DATA. Use headers that contain To and Cc but not Bcc.
 		$this->log_request('DATA', '354');
-		$this->log[] = htmlspecialchars($this->create_headers(false));
+
+		// For the message payload, use headers that omit Bcc.
+		// create_headers(false) will build headers but we call a helper to ensure no Bcc header is present.
+		$headers_no_bcc = $this->create_headers(false); // create_headers already doesn't add Bcc anywhere, but ensure we don't pass BCC into To/Cc building
+
+		$this->log[] = htmlspecialchars($headers_no_bcc);
+
+		// Send the headers and body
 		$this->request($this->mail_headers, '250');
 
 		$this->log_request('QUIT', '221');
@@ -214,6 +231,7 @@ class SMTPMailer {
 
 		$this->header = [
 			'Date: ' . date('r'),
+			// Use To and Cc only; do NOT add Bcc to headers
 			'To: ' . $this->format_address_list($this->to),
 			'From: ' . $this->format_address($this->from),
 			'Subject: ' . '=?UTF-8?B?' . base64_encode($this->subject) . '?=',
