@@ -1,3 +1,5 @@
+![Ready](https://img.shields.io/badge/status-ready-brightgreen.svg?style=flat-square)
+
 ### PHP-SMTP-Mailer
 This is a lightweight SMTP PHPMailer.<br>
 Updated to work with PHP 8.0+.<br>
