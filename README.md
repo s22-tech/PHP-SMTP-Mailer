@@ -1,4 +1,4 @@
-![Ready](https://img.shields.io/badge/status-ready-brightgreen.svg?style=flat-square)
+![Ready](https://img.shields.io/badge/status-ready%20to%20go-brightgreen.svg?style=flat-square)
 
 ### PHP-SMTP-Mailer
 This is a lightweight SMTP PHPMailer.<br>
